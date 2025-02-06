@@ -13,6 +13,11 @@ const ChatContainer = styled.div`
   padding: 1rem;
   gap: 1rem;
   height: calc(100vh - 100px);
+  
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+    height: calc(100vh - 140px); // Account for header and progress bar
+  }
 `;
 
 function ChatInterface({ userData, onMilestone }) {

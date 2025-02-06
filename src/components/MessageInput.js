@@ -1,39 +1,44 @@
 import React, { useState } from 'react';
 import styled from '@emotion/styled';
 
-const InputContainer = styled.div`
+const InputContainer = styled.form`
   display: flex;
   gap: 1rem;
   padding: 1rem;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: white;
+  border-top: 1px solid #eee;
+
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+    position: sticky;
+    bottom: 0;
+  }
 `;
 
 const Input = styled.input`
   flex: 1;
-  padding: 0.5rem;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
+  padding: 0.8rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
   font-size: 1rem;
-  
-  &:focus {
-    outline: none;
-    border-color: #007bff;
+
+  @media (max-width: 768px) {
+    padding: 0.6rem;
+    font-size: 0.9rem;
   }
 `;
 
 const SendButton = styled.button`
-  padding: 0.5rem 1rem;
-  background-color: #007bff;
+  padding: 0.8rem 1.5rem;
+  background: #3498db;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  opacity: ${props => props.disabled ? 0.7 : 1};
-  
-  &:hover {
-    background-color: ${props => props.disabled ? '#007bff' : '#0056b3'};
+
+  @media (max-width: 768px) {
+    padding: 0.6rem 1rem;
   }
 `;
 

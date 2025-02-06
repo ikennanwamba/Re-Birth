@@ -20,6 +20,10 @@ const Header = styled.header`
   display: flex;
   justify-content: space-between;
   align-items: center;
+
+  @media (max-width: 768px) {
+    padding: 0.3rem;
+  }
 `;
 
 const Title = styled.h1`
@@ -30,6 +34,10 @@ const Title = styled.h1`
 const ButtonGroup = styled.div`
   display: flex;
   gap: 0.5rem;
+
+  @media (max-width: 768px) {
+    gap: 0.3rem;
+  }
 `;
 
 const HeaderButton = styled.button`
@@ -43,6 +51,11 @@ const HeaderButton = styled.button`
   
   &:hover {
     background-color: ${props => props.variant === 'danger' ? '#c0392b' : '#7f8c8d'};
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
   }
 `;
 

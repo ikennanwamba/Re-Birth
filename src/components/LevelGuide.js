@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from '@emotion/styled';
 
 const GuideContainer = styled.div`
@@ -11,6 +11,14 @@ const GuideContainer = styled.div`
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   width: 250px;
   z-index: 100;
+
+  @media (max-width: 768px) {
+    left: 10px;
+    top: auto;
+    bottom: ${props => props.isOpen ? '10px' : '-100%'};
+    width: calc(100% - 20px);
+    transition: bottom 0.3s ease;
+  }
 `;
 
 const GuideTitle = styled.h3`
@@ -61,7 +69,30 @@ const MilestoneItem = styled.div`
   justify-content: space-between;
 `;
 
+const ToggleButton = styled.button`
+  display: none;
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 1.5rem;
+  z-index: 101;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+
+  @media (max-width: 768px) {
+    display: block;
+  }
+`;
+
 function LevelGuide({ currentLevel, currentExp }) {
+  const [isOpen, setIsOpen] = useState(false);
+
   const levels = [
     { level: 1, desc: "Beginning the Journey" },
     { level: 2, desc: "Opening Up" },
@@ -77,32 +108,37 @@ function LevelGuide({ currentLevel, currentExp }) {
   ];
 
   return (
-    <GuideContainer>
-      <GuideTitle>
-        <span>🌱</span> Growth Journey
-      </GuideTitle>
-      <LevelList>
-        {levels.map(({ level, desc }) => (
-          <LevelItem key={level}>
-            <LevelBadge current={level === currentLevel}>
-              Level {level}
-            </LevelBadge>
-            {desc}
-          </LevelItem>
-        ))}
-      </LevelList>
-      <MilestoneList>
+    <>
+      <GuideContainer isOpen={isOpen}>
         <GuideTitle>
-          <span>⭐</span> How to Grow
+          <span>🌱</span> Growth Journey
         </GuideTitle>
-        {milestones.map(({ action, exp }) => (
-          <MilestoneItem key={action}>
-            <span>{action}</span>
-            <span>{exp}</span>
-          </MilestoneItem>
-        ))}
-      </MilestoneList>
-    </GuideContainer>
+        <LevelList>
+          {levels.map(({ level, desc }) => (
+            <LevelItem key={level}>
+              <LevelBadge current={level === currentLevel}>
+                Level {level}
+              </LevelBadge>
+              {desc}
+            </LevelItem>
+          ))}
+        </LevelList>
+        <MilestoneList>
+          <GuideTitle>
+            <span>⭐</span> How to Grow
+          </GuideTitle>
+          {milestones.map(({ action, exp }) => (
+            <MilestoneItem key={action}>
+              <span>{action}</span>
+              <span>{exp}</span>
+            </MilestoneItem>
+          ))}
+        </MilestoneList>
+      </GuideContainer>
+      <ToggleButton onClick={() => setIsOpen(!isOpen)}>
+        {isOpen ? '✕' : '📊'}
+      </ToggleButton>
+    </>
   );
 }
 
