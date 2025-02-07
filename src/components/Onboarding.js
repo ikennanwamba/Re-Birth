@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styled from '@emotion/styled';
 import LoadingResponse from './LoadingResponse';
+import ProgressBar from './ProgressBar';
 
 const OnboardingContainer = styled.div`
   display: flex;
@@ -123,6 +124,20 @@ const ReadMoreButton = styled.button`
   }
 `;
 
+const SkipButton = styled.button`
+  background: none;
+  border: none;
+  color: #95a5a6;
+  font-size: 0.9rem;
+  margin-top: 1rem;
+  cursor: pointer;
+  text-decoration: underline;
+  
+  &:hover {
+    color: #7f8c8d;
+  }
+`;
+
 function Onboarding({ onComplete }) {
   const [step, setStep] = useState(1);
   const [userData, setUserData] = useState({
@@ -221,6 +236,25 @@ Start with "H-hi ${userData.name}..." and then speak from the perspective of the
               placeholder="Enter your name"
             />
             <Button onClick={handleNext} disabled={!userData.name}>Next</Button>
+            {userData.name && (
+              <SkipButton
+                onClick={() => onComplete({
+                  name: userData.name,
+                  memory: 'Taking the first step towards healing by starting a direct conversation.',
+                  feeling: '😊',
+                  need: 'Understanding and connection',
+                  firstInteraction: new Date().toISOString(),
+                  lastInteraction: new Date().toISOString(),
+                  conversationHistory: [],
+                  importantMemories: [],
+                  emotionalMoments: [],
+                  relationships: [],
+                  themes: []
+                })}
+              >
+                Skip onboarding and start chatting
+              </SkipButton>
+            )}
           </>
         );
       case 3:
@@ -340,6 +374,7 @@ Start with "H-hi ${userData.name}..." and then speak from the perspective of the
   return (
     <OnboardingContainer>
       <Card>
+        <ProgressBar currentStep={step} />
         {renderStep()}
       </Card>
     </OnboardingContainer>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from '@emotion/styled';
 
-const InputContainer = styled.form`
+const InputContainer = styled.div`
   display: flex;
   gap: 1rem;
   padding: 1rem;
