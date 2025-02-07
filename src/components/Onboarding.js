@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import styled from '@emotion/styled';
 import LoadingResponse from './LoadingResponse';
 import ProgressBar from './ProgressBar';
+import { supabase } from '../supabase';
 
 const OnboardingContainer = styled.div`
   display: flex;
@@ -138,6 +139,46 @@ const SkipButton = styled.button`
   }
 `;
 
+const LoginContainer = styled.div`
+  margin-top: 2rem;
+  text-align: center;
+`;
+
+const LoginToggle = styled.button`
+  background: none;
+  border: none;
+  color: #3498db;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.9rem;
+`;
+
+const LoginForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+`;
+
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  background-color: #f5f5f5;
+`;
+
+const ErrorMessage = styled.div`
+  color: #e74c3c;
+  background-color: #fde8e7;
+  padding: 0.8rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+`;
+
 function Onboarding({ onComplete }) {
   const [step, setStep] = useState(1);
   const [userData, setUserData] = useState({
@@ -152,6 +193,10 @@ function Onboarding({ onComplete }) {
   const responseRef = useRef(null);
   const [showButton, setShowButton] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (responseRef.current && step === 4) {
@@ -213,6 +258,142 @@ Start with "H-hi ${userData.name}..." and then speak from the perspective of the
       setStep(step + 1);
     } else {
       onComplete(userData);
+    }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    
+    try {
+      console.log('Starting login...');
+      
+      // First check if user exists
+      const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      console.log('Sign in result:', { user, error: signInError });
+
+      if (signInError) {
+        throw signInError;
+      }
+
+      if (!user) {
+        throw new Error('No user returned from authentication');
+      }
+
+      // Get user profile with session token
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      console.log('Profile fetch:', { profile, profileError });
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      // Check for progress record
+      const { data: progressData, error: progressError } = await supabase
+        .from('progress')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!progressData && !progressError) {
+        // Create progress record if it doesn't exist
+        await supabase
+          .from('progress')
+          .insert({
+            user_id: user.id,
+            level: 1,
+            experience: 0,
+            next_level_at: 100
+          });
+      }
+
+      onComplete(profile);
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error.message || 'Failed to login. Please try again.');
+    }
+  };
+
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    setError('');
+    
+    try {
+      // First create the auth user
+      const { data: { user }, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: email.split('@')[0]
+          }
+        }
+      });
+
+      if (signUpError) throw signUpError;
+
+      if (user) {
+        // Create all necessary records in a transaction-like sequence
+        try {
+          // 1. Create user profile
+          const { data: profile, error: profileError } = await supabase
+            .from('users')
+            .insert({
+              id: user.id,
+              name: email.split('@')[0],
+              memory: 'First time logging in',
+              feeling: '😊',
+              need: 'Getting started',
+              first_interaction: new Date().toISOString(),
+              last_interaction: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+          if (profileError) throw profileError;
+
+          // 2. Create progress record
+          const { error: progressError } = await supabase
+            .from('progress')
+            .insert({
+              user_id: user.id,
+              level: 1,
+              experience: 0,
+              next_level_at: 100
+            });
+
+          if (progressError) throw progressError;
+
+          // 3. Create initial milestone
+          const { error: milestoneError } = await supabase
+            .from('milestones')
+            .insert({
+              user_id: user.id,
+              reason: 'Started healing journey',
+              exp: 50
+            });
+
+          if (milestoneError) throw milestoneError;
+          
+          onComplete(profile);
+        } catch (error) {
+          // If any creation fails, we should handle cleanup
+          console.error('Error during profile setup:', error);
+          throw new Error('Failed to set up user profile. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      setError(error.message || 'Failed to sign up. Please try again.');
     }
   };
 
@@ -371,12 +552,48 @@ Start with "H-hi ${userData.name}..." and then speak from the perspective of the
     }
   };
 
+  if (showLogin) {
+    return (
+      <Container>
+        <Title>Welcome Back! 👋</Title>
+        {error && <ErrorMessage>{error}</ErrorMessage>}
+        <LoginForm onSubmit={handleLogin}>
+          <Input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <Input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <Button type="submit">Login</Button>
+        </LoginForm>
+        <LoginContainer>
+          <LoginToggle onClick={() => setShowLogin(false)}>
+            New here? Start your journey
+          </LoginToggle>
+        </LoginContainer>
+      </Container>
+    );
+  }
+
   return (
     <OnboardingContainer>
       <Card>
         <ProgressBar currentStep={step} />
         {renderStep()}
       </Card>
+      <LoginContainer>
+        <LoginToggle onClick={() => setShowLogin(true)}>
+          Already have an account? Login
+        </LoginToggle>
+      </LoginContainer>
     </OnboardingContainer>
   );
 }

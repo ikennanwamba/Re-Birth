@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import { supabase } from '../supabase';
 
 const ChatContainer = styled.div`
   flex: 1;
@@ -20,7 +21,7 @@ const ChatContainer = styled.div`
   }
 `;
 
-function ChatInterface({ userData, onMilestone }) {
+function ChatInterface({ userData, onMilestone, session }) {
   const SYSTEM_PROMPT = `Context:
 You are ${userData.name}'s inner child. You share their memories and feelings directly. You remember:
 
@@ -77,15 +78,28 @@ Remember: You're not giving advice - you're sharing your own feelings and experi
   };
 
   const handleSendMessage = async (message) => {
-    const userMessage = {
-      content: message,
-      sender: 'user',
-      timestamp: new Date().toISOString(),
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-
     try {
+      const userMessage = {
+        content: message,
+        sender: 'user',
+        timestamp: new Date().toISOString(),
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+
+      // Save to Supabase only if user is authenticated
+      if (session?.user?.id) {
+        const { error } = await supabase
+          .from('conversations')
+          .insert([{
+            user_id: session.user.id,
+            content: message,
+            sender: 'user'
+          }]);
+
+        if (error) console.error('Error saving to Supabase:', error);
+      }
+
       const previousSummary = summarizeConversations(messages);
       const personalizedPrompt = SYSTEM_PROMPT
         .replace('{name}', userData.name)
@@ -95,6 +109,25 @@ Remember: You're not giving advice - you're sharing your own feelings and experi
         .replace('{firstInteraction}', userData.firstInteraction)
         .replace('{lastInteraction}', userData.lastInteraction)
         .replace('{previousSummary}', previousSummary);
+
+      // Log the API request
+      console.log('Sending to OpenAI:', {
+        model: "gpt-4-turbo-preview",
+        messages: [
+          {
+            role: "system",
+            content: personalizedPrompt
+          },
+          ...messages.map(msg => ({
+            role: msg.sender === 'user' ? 'user' : 'assistant',
+            content: msg.content
+          })),
+          {
+            role: "user",
+            content: message
+          }
+        ]
+      });
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -122,11 +155,14 @@ Remember: You're not giving advice - you're sharing your own feelings and experi
         })
       });
 
-      const data = await response.json();
-      
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to get AI response');
+        const errorData = await response.json();
+        console.error('OpenAI Error:', errorData);
+        throw new Error(errorData.error?.message || 'Failed to get AI response');
       }
+
+      const data = await response.json();
+      console.log('OpenAI Response:', data);  // Log the response
 
       const aiMessage = {
         content: data.choices[0].message.content,
@@ -151,7 +187,7 @@ Remember: You're not giving advice - you're sharing your own feelings and experi
         onMilestone(5, "Consistent Reflection"); // Reward consistency
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error saving message:', error);
       const errorMessage = {
         content: "Sorry, I couldn't process your request. Please try again.",
         sender: 'ai',

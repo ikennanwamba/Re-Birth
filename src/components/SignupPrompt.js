@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import styled from '@emotion/styled';
+import { supabase } from '../supabase';
+import { debounce } from 'lodash';
 
 const PromptOverlay = styled.div`
   position: fixed;
@@ -72,35 +74,58 @@ const SkipButton = styled.button`
   }
 `;
 
-function SignupPrompt({ onSignup, onSkip }) {
+function SignupPrompt({ onSignup, onSkip, userData }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = debounce(async (e) => {
     e.preventDefault();
     try {
-      // Here you would integrate with your backend API
-      const response = await fetch('/api/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          progress: localStorage.getItem('reflectionProgress'),
-          userData: localStorage.getItem('userData')
-        })
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        onSignup(data);
-      }
+
+      if (authError) throw authError;
+
+      // Create user profile - match exact schema
+      const { error: userError } = await supabase
+        .from('users')  // using 'users' table, not 'profiles'
+        .insert([
+          {
+            id: authData.user.id,
+            name: userData.name,
+            memory: userData.memory,
+            feeling: userData.feeling,
+            need: userData.need,
+            first_interaction: new Date().toISOString(),
+            last_interaction: new Date().toISOString()
+            // created_at will be set automatically by Supabase
+          }
+        ]);
+
+      if (userError) throw userError;
+
+      // Save progress - match exact schema
+      const { error: progressError } = await supabase
+        .from('progress')
+        .insert([
+          {
+            user_id: authData.user.id,
+            level: 1,
+            experience: 0,
+            next_level_at: 100,
+            // created_at will be set automatically
+          }
+        ]);
+
+      if (progressError) throw progressError;
+
+      onSignup(authData.user);
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error('Error:', error);
     }
-  };
+  }, 1000);
 
   return (
     <PromptOverlay>
