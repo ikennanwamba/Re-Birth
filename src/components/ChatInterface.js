@@ -48,14 +48,63 @@ Guidelines:
 
 Remember: You're not giving advice - you're sharing your own feelings and experiences as their younger self, while showing you remember and understand everything they've shared.`;
 
-  const [messages, setMessages] = useState(() => {
-    const savedMessages = localStorage.getItem('chatMessages');
-    return savedMessages ? JSON.parse(savedMessages) : [];
-  });
+  const [messages, setMessages] = useState([]);
 
   useEffect(() => {
-    localStorage.setItem('chatMessages', JSON.stringify(messages));
-  }, [messages]);
+    const loadConversationHistory = async () => {
+      try {
+        console.log('Loading conversation history for user:', session?.user?.id);
+        
+        const { data, error } = await supabase
+          .from('conversations')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('timestamp', { ascending: true });
+
+        if (error) {
+          console.error('Error fetching conversations:', error);
+          return;
+        }
+
+        // Log each message individually for better debugging
+        if (data) {
+          data.forEach((msg, index) => {
+            console.log(`Message ${index + 1}:`, {
+              content: msg.content.substring(0, 50) + '...',
+              sender: msg.sender,
+              timestamp: msg.timestamp,
+              user_id: msg.user_id
+            });
+          });
+        }
+
+        if (data) {
+          const formattedMessages = data.map(msg => ({
+            content: msg.content,
+            sender: msg.sender,
+            timestamp: new Date(msg.timestamp)
+          }));
+          
+          console.log('Formatted messages (detailed):', formattedMessages.map(msg => ({
+            content: msg.content.substring(0, 50) + '...',
+            sender: msg.sender,
+            timestamp: msg.timestamp
+          })));
+          setMessages(formattedMessages);
+        }
+      } catch (error) {
+        console.error('Detailed error:', {
+          message: error.message,
+          stack: error.stack,
+          details: error
+        });
+      }
+    };
+
+    if (session?.user?.id) {
+      loadConversationHistory();
+    }
+  }, [session?.user?.id]);
 
   const summarizeConversations = (messages) => {
     // Create a more detailed summary including:
@@ -94,7 +143,8 @@ Remember: You're not giving advice - you're sharing your own feelings and experi
           .insert([{
             user_id: session.user.id,
             content: message,
-            sender: 'user'
+            sender: 'user',
+            timestamp: new Date().toISOString()
           }]);
 
         if (error) console.error('Error saving to Supabase:', error);
@@ -169,7 +219,35 @@ Remember: You're not giving advice - you're sharing your own feelings and experi
         sender: 'ai',
         timestamp: new Date().toISOString(),
       };
-      
+
+      // Log before saving to Supabase
+      console.log('Attempting to save AI response:', {
+        user_id: session.user.id,
+        content: aiMessage.content.substring(0, 50) + '...',
+        sender: aiMessage.sender,
+        timestamp: aiMessage.timestamp
+      });
+
+      // Save AI response to Supabase
+      if (session?.user?.id) {
+        const { data: savedData, error: aiError } = await supabase  // Capture the returned data
+          .from('conversations')
+          .insert([{
+            user_id: session.user.id,
+            content: data.choices[0].message.content,
+            sender: 'ai',
+            timestamp: new Date().toISOString()
+          }])
+          .select();  // Add this to get back the saved record
+
+        if (aiError) {
+          console.error('Error saving AI response to Supabase:', aiError);
+          throw aiError;
+        }
+
+        console.log('Successfully saved AI response:', savedData);  // Log successful save
+      }
+
       setMessages(prev => [...prev, aiMessage]);
 
       // More nuanced XP rewards based on message quality
