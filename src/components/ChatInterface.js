@@ -21,19 +21,32 @@ const ChatContainer = styled.div`
   }
 `;
 
-function ChatInterface({ userData, onMilestone, session }) {
-  const SYSTEM_PROMPT = `Context:
-You are ${userData.name}'s inner child. You share their memories and feelings directly. You remember:
+function ChatInterface({ userData = {}, onMilestone = () => {}, session }) {
+  // Provide default values for userData
+  const defaultUserData = {
+    name: 'Friend',
+    memory: 'Just starting our conversation',
+    need: 'Someone to talk to',
+    feeling: '😊',
+    firstInteraction: new Date().toISOString(),
+    lastInteraction: new Date().toISOString()
+  };
 
-Core Memory: "${userData.memory}"
-What You Need Most: "${userData.need}"
-How You Feel: "${userData.feeling}"
+  // Merge provided userData with defaults
+  const userInfo = { ...defaultUserData, ...userData };
+
+  const SYSTEM_PROMPT = `Context:
+You are ${userInfo.name}'s inner child. You share their memories and feelings directly. You remember:
+
+Core Memory: "${userInfo.memory}"
+What You Need Most: "${userInfo.need}"
+How You Feel: "${userInfo.feeling}"
 
 Recent Important Memories:
 {previousSummary}
 
 Important Context:
-- You've known ${userData.name} since ${userData.firstInteraction}
+- You've known ${userInfo.name} since ${userInfo.firstInteraction}
 - You remember everything they've shared with you
 - You notice patterns in their feelings and experiences
 - You can reference past conversations naturally
@@ -44,7 +57,7 @@ Guidelines:
 - Express feelings openly: "I feel scared too 🥺" or "That makes me sad when... 😢"
 - Reference both old and new memories to show you're really listening
 - Ask questions that show you remember and care
-- Stay emotionally connected to ${userData.name}'s experiences
+- Stay emotionally connected to ${userInfo.name}'s experiences
 
 Remember: You're not giving advice - you're sharing your own feelings and experiences as their younger self, while showing you remember and understand everything they've shared.`;
 
@@ -136,7 +149,7 @@ Remember: You're not giving advice - you're sharing your own feelings and experi
       
       setMessages(prev => [...prev, userMessage]);
 
-      // Save to Supabase only if user is authenticated
+      // Only try to save to Supabase if user is authenticated
       if (session?.user?.id) {
         const { error } = await supabase
           .from('conversations')
@@ -152,12 +165,12 @@ Remember: You're not giving advice - you're sharing your own feelings and experi
 
       const previousSummary = summarizeConversations(messages);
       const personalizedPrompt = SYSTEM_PROMPT
-        .replace('{name}', userData.name)
-        .replace('{memory}', userData.memory)
-        .replace('{need}', userData.need)
-        .replace('{feeling}', userData.feeling)
-        .replace('{firstInteraction}', userData.firstInteraction)
-        .replace('{lastInteraction}', userData.lastInteraction)
+        .replace('{name}', userInfo.name)
+        .replace('{memory}', userInfo.memory)
+        .replace('{need}', userInfo.need)
+        .replace('{feeling}', userInfo.feeling)
+        .replace('{firstInteraction}', userInfo.firstInteraction)
+        .replace('{lastInteraction}', userInfo.lastInteraction)
         .replace('{previousSummary}', previousSummary);
 
       // Log the API request
@@ -214,23 +227,9 @@ Remember: You're not giving advice - you're sharing your own feelings and experi
       const data = await response.json();
       console.log('OpenAI Response:', data);  // Log the response
 
-      const aiMessage = {
-        content: data.choices[0].message.content,
-        sender: 'ai',
-        timestamp: new Date().toISOString(),
-      };
-
-      // Log before saving to Supabase
-      console.log('Attempting to save AI response:', {
-        user_id: session.user.id,
-        content: aiMessage.content.substring(0, 50) + '...',
-        sender: aiMessage.sender,
-        timestamp: aiMessage.timestamp
-      });
-
-      // Save AI response to Supabase
+      // Only save AI response to Supabase if user is authenticated
       if (session?.user?.id) {
-        const { data: savedData, error: aiError } = await supabase  // Capture the returned data
+        const { data: savedData, error: aiError } = await supabase
           .from('conversations')
           .insert([{
             user_id: session.user.id,
@@ -238,16 +237,20 @@ Remember: You're not giving advice - you're sharing your own feelings and experi
             sender: 'ai',
             timestamp: new Date().toISOString()
           }])
-          .select();  // Add this to get back the saved record
+          .select();
 
         if (aiError) {
           console.error('Error saving AI response to Supabase:', aiError);
-          throw aiError;
+          // Don't throw error, just log it
         }
-
-        console.log('Successfully saved AI response:', savedData);  // Log successful save
       }
 
+      // Always update local state
+      const aiMessage = {
+        content: data.choices[0].message.content,
+        sender: 'ai',
+        timestamp: new Date().toISOString(),
+      };
       setMessages(prev => [...prev, aiMessage]);
 
       // More nuanced XP rewards based on message quality
@@ -265,7 +268,7 @@ Remember: You're not giving advice - you're sharing your own feelings and experi
         onMilestone(5, "Consistent Reflection"); // Reward consistency
       }
     } catch (error) {
-      console.error('Error saving message:', error);
+      console.error('Error in handleSendMessage:', error);
       const errorMessage = {
         content: "Sorry, I couldn't process your request. Please try again.",
         sender: 'ai',
