@@ -452,35 +452,57 @@ Start with "H-hi ${userData.name}..." and then speak from the perspective of the
                   lineHeight: '1.6',
                   fontSize: '1.1rem'
                 }}>
-                  Take a moment to share your childhood journey. You can tell us about:
-                  • Your earliest memories that shaped you
-                  • Experiences that left a lasting impact
-                  • How these moments made you feel then
-                  • How they still affect you today
+                  Take a moment to share your childhood journey. Start small - even a single memory is perfect.
+                  For example:
+                </p>
+                <div style={{
+                  background: '#f8f9fa',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
+                  fontStyle: 'italic'
+                }}>
+                  "I remember when I was 7, my favorite place was under the big tree in our backyard. 
+                  I used to sit there and read books after school. It felt like my own special spot."
+                </div>
+                <p style={{
+                  color: '#666',
+                  marginBottom: '1rem',
+                  fontSize: '0.95rem'
+                }}>
+                  Your story could be about:
+                  • A special place you felt safe
+                  • A moment that made you happy or sad
+                  • Someone who was important to you
+                  • A regular day you remember clearly
                 </p>
                 <TextArea
                   value={userData.memory}
                   onChange={(e) => setUserData({ ...userData, memory: e.target.value })}
-                  placeholder="Your story is safe here. Share as much as feels right..."
+                  placeholder="Share what feels comfortable..."
                   style={{
-                    minHeight: '200px',
+                    minHeight: '150px',
                     fontSize: '1rem',
                     lineHeight: '1.6',
-                    padding: '1rem',
-                    resize: 'vertical'
+                    padding: '1rem'
                   }}
                 />
-                <p style={{
-                  color: '#666',
-                  fontSize: '0.9rem',
-                  marginTop: '0.5rem',
-                  fontStyle: 'italic'
-                }}>
-                  The more you share, the better your inner child can connect with you.
-                </p>
-                <Button onClick={handleNext} disabled={!userData.memory}>
-                  Next
-                </Button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
+                  <Button onClick={handleNext} disabled={!userData.memory}>
+                    Continue
+                  </Button>
+                  <SkipButton
+                    onClick={() => {
+                      setUserData(prev => ({
+                        ...prev,
+                        memory: "I'm not ready to share just yet, but I'd like to talk."
+                      }));
+                      handleNext();
+                    }}
+                  >
+                    Skip for now - I'd like to just talk
+                  </SkipButton>
+                </div>
               </>
             )}
           </>
